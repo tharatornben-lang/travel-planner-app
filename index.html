@@ -179,9 +179,16 @@
         let stopoversSnapshot = null; // New snapshot for stopovers
 
         // Mandatorily provided by the canvas environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        const appId = "travel-planner-app-dbfd5";
+const firebaseConfig = {
+  apiKey: "AIzaSyBTrtJZ5WjxjlIjEYFyqKKKBpchnN265s0",
+  authDomain: "travel-planner-app-dbfd5.firebaseapp.com",
+  projectId: "travel-planner-app-dbfd5",
+  storageBucket: "travel-planner-app-dbfd5.firebasestorage.app",
+  messagingSenderId: "748401113751",
+  appId: "1:748401113751:web:bf6bc2a58df0f0428d87d2",
+  measurementId: "G-614FT9RZHB"
+};
 
         // Enable debug logging for Firestore
         setLogLevel('Debug');
