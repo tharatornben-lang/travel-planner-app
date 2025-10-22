@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>แอปวางแผนการท่องเที่ยว</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Noto+Sans+Thai:wght@100..900&display=swap');
+        :root {
+            font-family: 'Noto Sans Thai', 'Inter', sans-serif;
+        }
+        .card-shadow {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .scroll-container {
+            max-height: calc(100vh - 10rem); /* 10rem for header and margin */
+            overflow-y: auto;
+            -ms-overflow-style: none; /* IE and Edge */
+            scrollbar-width: none; /* Firefox */
+        }
+        .scroll-container::-webkit-scrollbar {
+            display: none; /* Chrome, Safari, Opera */
+        }
+        /* Custom alert replacement style */
+        .custom-confirm-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Main Application Container -->
+    <div id="app" class="max-w-4xl mx-auto p-4 sm:p-6">
+        <!-- Header -->
+        <header class="mb-6 pb-3 border-b border-sky-200 flex justify-between items-center">
+            <h1 class="text-3xl font-extrabold text-sky-700">🧭 Travel Planner</h1>
+            <button id="addTripBtn" class="bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-lg transition duration-150 flex items-center shadow-lg shadow-sky-300/50">
+                <i data-lucide="plus" class="w-5 h-5 mr-1"></i>
+                <span class="hidden sm:inline">เพิ่มทริปใหม่</span>
+                <span class="sm:hidden">เพิ่ม</span>
+            </button>
+        </header>
+
+        <!-- Loading & Status -->
+        <div id="loadingStatus" class="text-center py-10 text-sky-500 font-medium hidden">
+            <i data-lucide="loader" class="w-8 h-8 animate-spin mx-auto mb-2"></i>
+            <p>กำลังโหลดข้อมูล...</p>
+        </div>
+        <div id="errorStatus" class="text-center py-10 text-red-500 font-medium hidden">
+            <i data-lucide="alert-triangle" class="w-8 h-8 mx-auto mb-2"></i>
+            <p>เกิดข้อผิดพลาดในการโหลดแอป</p>
+        </div>
+        <div id="userIdDisplay" class="text-xs text-gray-500 mb-4"></div>
+
+        <!-- Main Content Area -->
+        <div id="mainContent" class="scroll-container">
+            <!-- Trips List View -->
+            <div id="tripsListView" class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <!-- Trip Cards will be rendered here -->
+            </div>
+
+            <!-- Trip Detail View -->
+            <div id="tripDetailView" class="hidden">
+                <button onclick="navigate('list')" class="text-sky-600 hover:text-sky-800 mb-4 flex items-center font-medium">
+                    <i data-lucide="arrow-left" class="w-5 h-5 mr-1"></i>
+                    กลับไปหน้ารายการทริป
+                </button>
+                <div id="tripDetailHeader" class="bg-white p-6 rounded-xl card-shadow mb-6">
+                    <!-- Trip details will be rendered here -->
+                </div>
+
+                <!-- Itinerary, Accommodation & Stopovers Sections -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Itinerary Section -->
+                    <div class="bg-white p-4 rounded-xl card-shadow">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-semibold text-gray-700 flex items-center">
+                                <i data-lucide="calendar-check" class="w-5 h-5 mr-2 text-emerald-500"></i>
+                                แผนการเดินทางหลัก (สถานที่)
+                            </h3>
+                            <button onclick="showForm('itinerary')" class="text-emerald-500 hover:text-emerald-700 font-medium p-1 rounded-full hover:bg-emerald-50">
+                                <i data-lucide="plus" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                        <div id="itinerariesList">
+                            <!-- Itinerary items will be rendered here -->
+                        </div>
+                    </div>
+
+                    <!-- Accommodation Section -->
+                    <div class="bg-white p-4 rounded-xl card-shadow">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-semibold text-gray-700 flex items-center">
+                                <i data-lucide="home" class="w-5 h-5 mr-2 text-sky-500"></i>
+                                ที่พัก (Accommodation)
+                            </h3>
+                            <button onclick="showForm('accommodation')" class="text-sky-500 hover:text-sky-700 font-medium p-1 rounded-full hover:bg-sky-50">
+                                <i data-lucide="plus" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                        <div id="accommodationsList">
+                            <!-- Accommodation items will be rendered here -->
+                        </div>
+                    </div>
+
+                    <!-- Stopovers Section (New Section) -->
+                    <div class="bg-white p-4 rounded-xl card-shadow md:col-span-2">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-semibold text-gray-700 flex items-center">
+                                <i data-lucide="coffee" class="w-5 h-5 mr-2 text-amber-500"></i>
+                                จุดแวะพักระหว่างทาง (Stopovers)
+                            </h3>
+                            <button onclick="showForm('stopover')" class="text-amber-500 hover:text-amber-700 font-medium p-1 rounded-full hover:bg-amber-50">
+                                <i data-lucide="plus" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                        <div id="stopoversList">
+                            <!-- Stopover items will be rendered here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Form Container -->
+    <div id="formModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-xl w-full max-w-lg p-6 card-shadow">
+            <h2 id="modalTitle" class="text-2xl font-bold mb-4 text-sky-700"></h2>
+            <form id="dataForm" onsubmit="handleFormSubmit(event)">
+                <div id="formFields" class="space-y-4 mb-6">
+                    <!-- Form fields will be rendered here based on context -->
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="hideForm()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">ยกเลิก</button>
+                    <button type="submit" class="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition duration-150">บันทึก</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Custom Confirmation Modal (Replaces alert/confirm) -->
+    <div id="customConfirmModal" class="custom-confirm-modal hidden">
+        <div class="bg-white rounded-xl w-full max-w-xs p-6 card-shadow text-center">
+            <p id="confirmMessage" class="mb-6 text-gray-700 font-medium">คุณต้องการลบรายการนี้ใช่หรือไม่?</p>
+            <div class="flex justify-center space-x-4">
+                <button id="confirmCancel" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 w-full">ยกเลิก</button>
+                <button id="confirmDelete" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 w-full">ลบ</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Firebase Imports -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ------------------- GLOBAL VARIABLES -------------------
+        let db, auth, userId = null;
+        let currentView = 'list'; // 'list' or 'detail'
+        let selectedTripId = null;
+        let allTrips = [];
+        let itinerariesSnapshot = null;
+        let accommodationsSnapshot = null;
+        let stopoversSnapshot = null; // New snapshot for stopovers
+
+        // Mandatorily provided by the canvas environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Enable debug logging for Firestore
+        setLogLevel('Debug');
+
+        // ------------------- FIREBASE & AUTH SETUP -------------------
+
+        async function initFirebase() {
+            try {
+                if (Object.keys(firebaseConfig).length === 0) {
+                    throw new Error("Firebase config is missing.");
+                }
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                document.getElementById('loadingStatus').classList.remove('hidden');
+
+                // Authentication
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        console.log("Authenticated User ID:", userId);
+                        document.getElementById('userIdDisplay').textContent = `User ID (สำหรับแชร์): ${userId}`;
+                        startRealtimeListeners();
+                    } else {
+                        // Sign in using custom token or anonymously
+                        try {
+                            if (initialAuthToken) {
+                                await signInWithCustomToken(auth, initialAuthToken);
+                            } else {
+                                await signInAnonymously(auth);
+                            }
+                        } catch (error) {
+                            console.error("Authentication failed:", error);
+                            document.getElementById('errorStatus').classList.remove('hidden');
+                            document.getElementById('loadingStatus').classList.add('hidden');
+                        }
+                    }
+                    document.getElementById('loadingStatus').classList.add('hidden');
+                });
+
+            } catch (error) {
+                console.error("Failed to initialize Firebase:", error);
+                document.getElementById('errorStatus').classList.remove('hidden');
+                document.getElementById('loadingStatus').classList.add('hidden');
+            }
+        }
+
+        // ------------------- FIREBASE PATHS & COLLECTIONS -------------------
+
+        /**
+         * Constructs the Firestore collection path for private user data.
+         * Path: /artifacts/{appId}/users/{userId}/{collectionName}
+         */
+        const getCollectionPath = (collectionName) => {
+            if (!userId) {
+                console.error("UserID not available for collection path.");
+                return null;
+            }
+            return `artifacts/${appId}/users/${userId}/${collectionName}`;
+        };
+
+        // ------------------- REAL-TIME LISTENERS -------------------
+
+        function startRealtimeListeners() {
+            // Listener for all Trips
+            const tripsRef = collection(db, getCollectionPath('trips'));
+            onSnapshot(tripsRef, (snapshot) => {
+                allTrips = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                console.log("Trips updated:", allTrips.length);
+                renderTripsList();
+                // If in detail view, ensure the current trip details are up-to-date
+                if (currentView === 'detail' && selectedTripId) {
+                    const selectedTrip = allTrips.find(t => t.id === selectedTripId);
+                    if (selectedTrip) {
+                        renderTripDetailHeader(selectedTrip);
+                    } else {
+                        // Trip was deleted, navigate back
+                        navigate('list');
+                    }
+                }
+            }, (error) => {
+                console.error("Error listening to trips:", error);
+            });
+        }
+
+        /**
+         * Starts listeners for Itineraries, Accommodations, and Stopovers for the selected trip.
+         */
+        function startDetailListeners(tripId) {
+            // Cleanup previous listeners
+            if (itinerariesSnapshot) itinerariesSnapshot();
+            if (accommodationsSnapshot) accommodationsSnapshot();
+            if (stopoversSnapshot) stopoversSnapshot(); // Cleanup new stopovers listener
+
+            // 1. Itineraries Listener
+            const itinerariesRef = collection(db, getCollectionPath('itineraries'));
+            const itineraryQuery = query(itinerariesRef, where("tripId", "==", tripId));
+            itinerariesSnapshot = onSnapshot(itineraryQuery, (snapshot) => {
+                const itineraries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderItineraries(itineraries.sort((a, b) => (a.date || '').localeCompare(b.date || ''))); // Sort by date
+            }, (error) => {
+                console.error("Error listening to itineraries:", error);
+            });
+
+            // 2. Accommodations Listener
+            const accommodationsRef = collection(db, getCollectionPath('accommodations'));
+            const accommodationQuery = query(accommodationsRef, where("tripId", "==", tripId));
+            accommodationsSnapshot = onSnapshot(accommodationQuery, (snapshot) => {
+                const accommodations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderAccommodations(accommodations);
+            }, (error) => {
+                console.error("Error listening to accommodations:", error);
+            });
+
+            // 3. Stopovers Listener (NEW)
+            const stopoversRef = collection(db, getCollectionPath('stopovers'));
+            const stopoverQuery = query(stopoversRef, where("tripId", "==", tripId));
+            stopoversSnapshot = onSnapshot(stopoverQuery, (snapshot) => {
+                const stopovers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderStopovers(stopovers.sort((a, b) => (a.date || '').localeCompare(b.date || ''))); // Sort by date
+            }, (error) => {
+                console.error("Error listening to stopovers:", error);
+            });
+        }
+
+        // ------------------- NAVIGATION & VIEW CONTROL -------------------
+
+        window.navigate = (view, tripId = null) => {
+            currentView = view;
+            selectedTripId = tripId;
+
+            const listDiv = document.getElementById('tripsListView');
+            const detailDiv = document.getElementById('tripDetailView');
+
+            if (view === 'list') {
+                listDiv.classList.remove('hidden');
+                detailDiv.classList.add('hidden');
+                if (itinerariesSnapshot) itinerariesSnapshot();
+                if (accommodationsSnapshot) accommodationsSnapshot();
+                if (stopoversSnapshot) stopoversSnapshot(); // Stop stopovers listener
+            } else if (view === 'detail' && tripId) {
+                listDiv.classList.add('hidden');
+                detailDiv.classList.remove('hidden');
+
+                const selectedTrip = allTrips.find(t => t.id === tripId);
+                if (selectedTrip) {
+                    renderTripDetailHeader(selectedTrip);
+                    startDetailListeners(tripId);
+                } else {
+                    console.warn("Trip not found, navigating back to list.");
+                    navigate('list');
+                }
+            }
+            // Re-render icons after switching view
+            lucide.createIcons();
+        };
+
+        // ------------------- RENDERING FUNCTIONS -------------------
+
+        function formatThaiDate(dateString) {
+            if (!dateString) return 'ไม่ระบุวันที่';
+            try {
+                const date = new Date(dateString);
+                // Simple date formatting (YYYY-MM-DD)
+                return date.toLocaleDateString('th-TH', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+            } catch {
+                return dateString; // Return original if parsing fails
+            }
+        }
+
+        // Render all trip cards
+        function renderTripsList() {
+            const container = document.getElementById('tripsListView');
+            if (currentView !== 'list') return; // Only render if on the list page
+
+            if (allTrips.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-1 sm:col-span-2 text-center p-10 bg-white rounded-xl card-shadow text-gray-500">
+                        <i data-lucide="map-pin" class="w-8 h-8 mx-auto mb-3"></i>
+                        <p class="font-medium">ยังไม่มีทริปที่วางแผนไว้</p>
+                        <p class="text-sm">คลิกปุ่ม "เพิ่มทริปใหม่" เพื่อเริ่มต้น</p>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = allTrips.map(trip => `
+                    <div onclick="navigate('detail', '${trip.id}')"
+                        class="bg-white rounded-xl overflow-hidden card-shadow hover:shadow-xl transition duration-300 cursor-pointer flex flex-col">
+                        <img src="${trip.imageUrl || 'https://placehold.co/600x400/1e88e5/ffffff?text=Travel+Image'}"
+                             onerror="this.onerror=null;this.src='https://placehold.co/600x400/1e88e5/ffffff?text=Travel+Image';"
+                             class="h-40 w-full object-cover">
+                        <div class="p-4 flex-grow">
+                            <h3 class="text-xl font-bold text-sky-700 mb-1">${trip.name || 'ชื่อทริปไม่ระบุ'}</h3>
+                            <p class="text-sm text-gray-500 mb-3 flex items-center">
+                                <i data-lucide="calendar" class="w-4 h-4 mr-1"></i>
+                                ${formatThaiDate(trip.startDate)} - ${formatThaiDate(trip.endDate)}
+                            </p>
+                            <span class="text-xs font-medium px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">สถานะ: ${trip.status || 'กำลังวางแผน'}</span>
+                        </div>
+                        <div class="p-3 border-t border-gray-100 flex justify-end">
+                            <button onclick="event.stopPropagation(); showForm('trip', '${trip.id}')"
+                                    class="text-gray-500 hover:text-sky-500 p-1 rounded-full transition"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                            <button onclick="event.stopPropagation(); deleteData('trips', '${trip.id}', '${trip.name}')"
+                                    class="text-gray-500 hover:text-red-500 p-1 rounded-full transition ml-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            lucide.createIcons();
+        }
+
+        // Render the header of the selected trip detail
+        function renderTripDetailHeader(trip) {
+            const container = document.getElementById('tripDetailHeader');
+            container.innerHTML = `
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between">
+                    <div>
+                        <h2 class="text-3xl font-extrabold text-sky-800 mb-1">${trip.name || 'ทริปไม่มีชื่อ'}</h2>
+                        <p class="text-base text-gray-600 mb-4 flex items-center">
+                            <i data-lucide="map-pin" class="w-4 h-4 mr-1 text-sky-500"></i>
+                            ${formatThaiDate(trip.startDate)} - ${formatThaiDate(trip.endDate)}
+                        </p>
+                    </div>
+                    <div class="flex space-x-2 mt-2 sm:mt-0">
+                        <button onclick="showForm('trip', '${trip.id}')"
+                                class="p-2 text-sky-500 border border-sky-300 rounded-full hover:bg-sky-50 transition duration-150"
+                                title="แก้ไขทริป"><i data-lucide="edit-3" class="w-5 h-5"></i></button>
+                        <button onclick="deleteData('trips', '${trip.id}', '${trip.name}')"
+                                class="p-2 text-red-500 border border-red-300 rounded-full hover:bg-red-50 transition duration-150"
+                                title="ลบทริป"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        // Render itinerary items for the selected trip
+        function renderItineraries(items) {
+            const container = document.getElementById('itinerariesList');
+            if (items.length === 0) {
+                container.innerHTML = `<p class="text-gray-400 p-4 text-center">ยังไม่มีแผนการเดินทางหลักในทริปนี้</p>`;
+                return;
+            }
+
+            container.innerHTML = items.map(item => `
+                <div class="border-b border-gray-100 last:border-b-0 py-3 flex justify-between items-start">
+                    <div class="flex-grow pr-4">
+                        <!-- New Image Display -->
+                        ${item.imageUrl ? `<img src="${item.imageUrl}" 
+                                                onerror="this.onerror=null;this.src='https://placehold.co/100x70/c0c0c0/ffffff?text=No+Image';" 
+                                                class="w-24 h-16 object-cover rounded-lg float-right ml-3 mb-1 shadow-md" 
+                                                alt="รูปสถานที่">` : ''}
+                        
+                        <p class="text-xs font-semibold text-emerald-600 mb-0.5">${formatThaiDate(item.date)} ${item.time ? `(${item.time} น.)` : ''}</p>
+                        <p class="font-medium text-gray-800">${item.name}</p>
+                        <p class="text-sm text-gray-500 mt-1">${item.description || 'ไม่มีรายละเอียด'}</p>
+                        
+                        <!-- New Google Map Link / Fallback Search Link -->
+                        ${item.googleMapLink ? 
+                            `<a href="${item.googleMapLink}" target="_blank" class="text-xs text-blue-500 hover:underline flex items-center mt-1">
+                                <i data-lucide="map-pin" class="w-3 h-3 mr-1"></i>ลิงก์ Google Map โดยตรง
+                            </a>` 
+                            : (item.location ? 
+                                `<a href="https://maps.google.com/?q=${encodeURIComponent(item.location)}" target="_blank" class="text-xs text-blue-500 hover:underline flex items-center mt-1">
+                                    <i data-lucide="map" class="w-3 h-3 mr-1"></i>ดูแผนที่ (ค้นหา)
+                                </a>` 
+                                : '')
+                        }
+                    </div>
+                    <div class="flex space-x-1 flex-shrink-0">
+                        <button onclick="showForm('itinerary', '${item.id}', '${item.tripId}')"
+                                class="text-gray-400 hover:text-emerald-500 p-1 transition"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                        <button onclick="deleteData('itineraries', '${item.id}', '${item.name}')"
+                                class="text-gray-400 hover:text-red-500 p-1 transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        // Render accommodation items for the selected trip
+        function renderAccommodations(items) {
+            const container = document.getElementById('accommodationsList');
+            if (items.length === 0) {
+                container.innerHTML = `<p class="text-gray-400 p-4 text-center">ยังไม่มีข้อมูลที่พัก</p>`;
+                return;
+            }
+
+            container.innerHTML = items.map(item => `
+                <div class="border-b border-gray-100 last:border-b-0 py-3 flex justify-between items-start">
+                    <div>
+                        <p class="font-medium text-gray-800">${item.name}</p>
+                        <p class="text-xs text-gray-500 mt-0.5">เช็คอิน: ${formatThaiDate(item.checkInDate)} | เช็คเอาท์: ${formatThaiDate(item.checkOutDate)}</p>
+                        ${item.cost ? `<p class="text-xs text-blue-600 font-semibold mt-1">ราคาโดยประมาณ: ${parseFloat(item.cost).toLocaleString()} บาท</p>` : ''}
+                        ${item.confirmation ? `<p class="text-xs text-gray-500 mt-0.5">รหัสยืนยัน: ${item.confirmation}</p>` : ''}
+                        ${item.bookingLink ? `<a href="${item.bookingLink}" target="_blank" class="text-xs text-blue-500 hover:underline flex items-center mt-1">
+                            <i data-lucide="external-link" class="w-3 h-3 mr-1"></i>ลิงก์การจอง
+                        </a>` : ''}
+                    </div>
+                    <div class="flex space-x-1 flex-shrink-0">
+                        <button onclick="showForm('accommodation', '${item.id}', '${item.tripId}')"
+                                class="text-gray-400 hover:text-sky-500 p-1 transition"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                        <button onclick="deleteData('accommodations', '${item.id}', '${item.name}')"
+                                class="text-gray-400 hover:text-red-500 p-1 transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+        
+        // Render stopover items for the selected trip (NEW)
+        function renderStopovers(items) {
+            const container = document.getElementById('stopoversList');
+            if (items.length === 0) {
+                container.innerHTML = `<p class="text-gray-400 p-4 text-center">ยังไม่มีจุดแวะพักระหว่างทางในทริปนี้</p>`;
+                return;
+            }
+
+            container.innerHTML = items.map(item => `
+                <div class="border-b border-gray-100 last:border-b-0 py-3 flex justify-between items-start">
+                    <div class="flex-grow pr-4">
+                        <!-- New Image Display -->
+                        ${item.imageUrl ? `<img src="${item.imageUrl}" 
+                                                onerror="this.onerror=null;this.src='https://placehold.co/100x70/c0c0c0/ffffff?text=No+Image';" 
+                                                class="w-24 h-16 object-cover rounded-lg float-right ml-3 mb-1 shadow-md" 
+                                                alt="รูปจุดแวะพัก">` : ''}
+
+                        <p class="text-xs font-semibold text-amber-600 mb-0.5">${formatThaiDate(item.date)} ${item.time ? `(${item.time} น.)` : ''}</p>
+                        <p class="font-medium text-gray-800">${item.name}</p>
+                        <p class="text-sm text-gray-500 mt-1">${item.notes || 'ไม่มีหมายเหตุ'}</p>
+                        
+                        <!-- New Google Map Link / Fallback Search Link -->
+                        ${item.googleMapLink ? 
+                            `<a href="${item.googleMapLink}" target="_blank" class="text-xs text-blue-500 hover:underline flex items-center mt-1">
+                                <i data-lucide="map-pin" class="w-3 h-3 mr-1"></i>ลิงก์ Google Map โดยตรง
+                            </a>` 
+                            : (item.location ? 
+                                `<a href="https://maps.google.com/?q=${encodeURIComponent(item.location)}" target="_blank" class="text-xs text-blue-500 hover:underline flex items-center mt-1">
+                                    <i data-lucide="map" class="w-3 h-3 mr-1"></i>ดูแผนที่ (ค้นหา)
+                                </a>` 
+                                : '')
+                        }
+                    </div>
+                    <div class="flex space-x-1 flex-shrink-0">
+                        <button onclick="showForm('stopover', '${item.id}', '${item.tripId}')"
+                                class="text-gray-400 hover:text-amber-500 p-1 transition"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                        <button onclick="deleteData('stopovers', '${item.id}', '${item.name}')"
+                                class="text-gray-400 hover:text-red-500 p-1 transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        // ------------------- FORM & MODAL CONTROL -------------------
+
+        let currentFormType = '';
+        let currentDataId = null;
+
+        document.getElementById('addTripBtn').addEventListener('click', () => showForm('trip'));
+
+        /**
+         * Shows the modal form for creating or editing data.
+         * @param {string} type - 'trip', 'itinerary', 'accommodation', or 'stopover'.
+         * @param {string} [dataId=null] - ID of the data to edit (null for new).
+         * @param {string} [linkedTripId=null] - Used for detail items when creating/editing.
+         */
+        window.showForm = async (type, dataId = null, linkedTripId = null) => {
+            currentFormType = type;
+            currentDataId = dataId;
+            const formFields = document.getElementById('formFields');
+            const modalTitle = document.getElementById('modalTitle');
+            let dataToEdit = null;
+            
+            const typeLabel = type === 'trip' ? 'ทริป' : type === 'itinerary' ? 'สถานที่' : type === 'accommodation' ? 'ที่พัก' : 'จุดแวะพัก';
+            modalTitle.textContent = dataId ? `แก้ไข${typeLabel}` : `เพิ่ม${typeLabel}ใหม่`;
+
+            if (dataId) {
+                // Fetch data for editing
+                let collectionName = type + (type === 'trip' ? 's' : 's');
+                // Special handling for stopover/stopovers
+                if (type === 'stopover') collectionName = 'stopovers';
+                
+                const docRef = doc(db, getCollectionPath(collectionName), dataId);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    dataToEdit = { id: docSnap.id, ...docSnap.data() };
+                }
+            }
+
+            // Generate fields based on type
+            let fieldsHTML = '';
+            switch (type) {
+                case 'trip':
+                    fieldsHTML = generateTripFields(dataToEdit);
+                    break;
+                case 'itinerary':
+                    fieldsHTML = generateItineraryFields(dataToEdit, linkedTripId || selectedTripId);
+                    break;
+                case 'accommodation':
+                    fieldsHTML = generateAccommodationFields(dataToEdit, linkedTripId || selectedTripId);
+                    break;
+                case 'stopover': // New Form Generation
+                    fieldsHTML = generateStopoverFields(dataToEdit, linkedTripId || selectedTripId);
+                    break;
+            }
+            formFields.innerHTML = fieldsHTML;
+            document.getElementById('formModal').classList.remove('hidden');
+            lucide.createIcons();
+        };
+
+        window.hideForm = () => {
+            document.getElementById('formModal').classList.add('hidden');
+            document.getElementById('dataForm').reset();
+            currentFormType = '';
+            currentDataId = null;
+        };
+
+        // --- Field Generation Helpers ---
+
+        const inputField = (id, label, type = 'text', value = '', required = false, placeholder = '') => `
+            <div>
+                <label for="${id}" class="block text-sm font-medium text-gray-700">${label}${required ? ' *' : ''}</label>
+                <input type="${type}" id="${id}" name="${id}" value="${value}" ${required ? 'required' : ''} placeholder="${placeholder}"
+                       class="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-3 focus:ring-sky-500 focus:border-sky-500 bg-gray-50">
+            </div>
+        `;
+
+        function generateTripFields(data) {
+            return `
+                ${inputField('tripName', 'ชื่อทริป', 'text', data?.name || '', true, 'เช่น ทริปเที่ยวญี่ปุ่น 7 วัน')}
+                ${inputField('tripStartDate', 'วันเริ่มต้น', 'date', data?.startDate || '', true)}
+                ${inputField('tripEndDate', 'วันสิ้นสุด', 'date', data?.endDate || '', true)}
+                ${inputField('tripImageUrl', 'ลิงก์รูปหน้าปก (URL)', 'url', data?.imageUrl || '', false, 'https://...')}
+            `;
+        }
+
+        function generateItineraryFields(data, tripId) {
+            return `
+                <input type="hidden" name="tripId" value="${tripId}">
+                ${inputField('itineraryName', 'ชื่อสถานที่/กิจกรรม', 'text', data?.name || '', true)}
+                ${inputField('itineraryDate', 'วันที่', 'date', data?.date || '', true)}
+                ${inputField('itineraryTime', 'เวลา (ถ้ามี)', 'time', data?.time || '')}
+                ${inputField('itineraryImageUrl', 'ลิงก์รูปภาพสถานที่ (URL)', 'url', data?.imageUrl || '', false, 'รูปภาพของสถานที่ (URL)')}
+                ${inputField('itineraryGoogleMapLink', 'ลิงก์ Google Map โดยตรง (URL)', 'url', data?.googleMapLink || '', false, 'https://maps.app.goo.gl/...')}
+                ${inputField('itineraryDescription', 'รายละเอียด', 'text', data?.description || '', false)}
+                ${inputField('itineraryLocation', 'พิกัด/ที่อยู่ (ข้อความสำหรับค้นหา)', 'text', data?.location || '', false, 'ชื่อสถานที่หรือที่อยู่สำหรับ Map Search')}
+            `;
+        }
+
+        function generateAccommodationFields(data, tripId) {
+            return `
+                <input type="hidden" name="tripId" value="${tripId}">
+                ${inputField('accommodationName', 'ชื่อที่พัก', 'text', data?.name || '', true)}
+                ${inputField('accommodationCheckInDate', 'วันเช็คอิน', 'date', data?.checkInDate || '', true)}
+                ${inputField('accommodationCheckOutDate', 'วันเช็คเอาท์', 'date', data?.checkOutDate || '', true)}
+                ${inputField('accommodationCost', 'ราคาโดยประมาณ (บาท)', 'number', data?.cost || '', false, 'เช่น 2500')}
+                ${inputField('accommodationConfirmation', 'หมายเลขการจอง/ยืนยัน', 'text', data?.confirmation || '', false)}
+                ${inputField('accommodationBookingLink', 'ลิงก์การจอง (URL)', 'url', data?.bookingLink || '')}
+            `;
+        }
+
+        // New Stopover Fields Generation
+        function generateStopoverFields(data, tripId) {
+            return `
+                <input type="hidden" name="tripId" value="${tripId}">
+                ${inputField('stopoverName', 'ชื่อจุดแวะพัก (เช่น ปั๊มน้ำมัน, ร้านกาแฟ)', 'text', data?.name || '', true)}
+                ${inputField('stopoverDate', 'วันที่', 'date', data?.date || '', true)}
+                ${inputField('stopoverTime', 'เวลา (ถ้ามี)', 'time', data?.time || '')}
+                ${inputField('stopoverImageUrl', 'ลิงก์รูปภาพสถานที่ (URL)', 'url', data?.imageUrl || '', false, 'รูปภาพของจุดแวะพัก (URL)')}
+                ${inputField('stopoverGoogleMapLink', 'ลิงก์ Google Map โดยตรง (URL)', 'url', data?.googleMapLink || '', false, 'https://maps.app.goo.gl/...')}
+                ${inputField('stopoverNotes', 'หมายเหตุ (เช่น เติมน้ำมัน, แวะซื้อของ)', 'text', data?.notes || '', false)}
+                ${inputField('stopoverLocation', 'พิกัด/ที่อยู่ (ข้อความสำหรับค้นหา)', 'text', data?.location || '', false, 'ชื่อสถานที่หรือที่อยู่สำหรับ Map Search')}
+            `;
+        }
+
+        // ------------------- CRUD OPERATIONS -------------------
+
+        window.handleFormSubmit = async (event) => {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            const data = {};
+
+            // Collect all form data
+            for (let [key, value] of formData.entries()) {
+                data[key] = value.trim();
+            }
+            
+            // Clean up keys before saving to finalData
+            const finalData = {};
+            let collectionName;
+
+            try {
+                switch (currentFormType) {
+                    case 'trip':
+                        collectionName = 'trips';
+                        finalData.startDate = data.tripStartDate;
+                        finalData.endDate = data.tripEndDate;
+                        finalData.name = data.tripName;
+                        finalData.imageUrl = data.tripImageUrl;
+                        finalData.status = 'กำลังวางแผน';
+                        break;
+                    case 'itinerary':
+                        collectionName = 'itineraries';
+                        finalData.date = data.itineraryDate;
+                        finalData.name = data.itineraryName;
+                        finalData.time = data.itineraryTime;
+                        finalData.imageUrl = data.itineraryImageUrl; // UPDATED
+                        finalData.googleMapLink = data.itineraryGoogleMapLink; // UPDATED
+                        finalData.description = data.itineraryDescription;
+                        finalData.location = data.itineraryLocation;
+                        finalData.tripId = data.tripId;
+                        break;
+                    case 'accommodation':
+                        collectionName = 'accommodations';
+                        finalData.name = data.accommodationName;
+                        finalData.checkInDate = data.accommodationCheckInDate;
+                        finalData.checkOutDate = data.accommodationCheckOutDate;
+                        finalData.cost = data.accommodationCost; 
+                        finalData.confirmation = data.accommodationConfirmation; 
+                        finalData.bookingLink = data.accommodationBookingLink;
+                        finalData.tripId = data.tripId;
+                        break;
+                    case 'stopover': // NEW CASE
+                        collectionName = 'stopovers';
+                        finalData.name = data.stopoverName;
+                        finalData.date = data.stopoverDate;
+                        finalData.time = data.stopoverTime;
+                        finalData.imageUrl = data.stopoverImageUrl; // UPDATED
+                        finalData.googleMapLink = data.stopoverGoogleMapLink; // UPDATED
+                        finalData.notes = data.stopoverNotes;
+                        finalData.location = data.stopoverLocation;
+                        finalData.tripId = data.tripId;
+                        break;
+                    default:
+                        throw new Error("Invalid form type.");
+                }
+
+                if (currentDataId) {
+                    // Update existing document
+                    const docRef = doc(db, getCollectionPath(collectionName), currentDataId);
+                    await updateDoc(docRef, finalData);
+                    console.log("Document updated with ID:", currentDataId);
+                } else {
+                    // Add new document
+                    await addDoc(collection(db, getCollectionPath(collectionName)), {
+                        ...finalData,
+                        createdAt: serverTimestamp()
+                    });
+                    console.log("New document added to", collectionName);
+                }
+
+                hideForm();
+
+            } catch (error) {
+                console.error("Error submitting data:", error);
+                // In a real app, show a friendly error message to the user here
+            }
+        };
+
+        // Custom delete confirmation logic (replacing native confirm)
+        function customConfirm(message, onConfirm) {
+            const modal = document.getElementById('customConfirmModal');
+            document.getElementById('confirmMessage').textContent = message;
+            modal.classList.remove('hidden');
+
+            const confirmDeleteBtn = document.getElementById('confirmDelete');
+            const confirmCancelBtn = document.getElementById('confirmCancel');
+
+            const handleConfirm = () => {
+                modal.classList.add('hidden');
+                onConfirm(true);
+                removeListeners();
+            };
+
+            const handleCancel = () => {
+                modal.classList.add('hidden');
+                onConfirm(false);
+                removeListeners();
+            };
+
+            const removeListeners = () => {
+                confirmDeleteBtn.removeEventListener('click', handleConfirm);
+                confirmCancelBtn.removeEventListener('click', handleCancel);
+            };
+
+            confirmDeleteBtn.addEventListener('click', handleConfirm);
+            confirmCancelBtn.addEventListener('click', handleCancel);
+        }
+
+        window.deleteData = (collectionName, id, name) => {
+            customConfirm(`คุณต้องการลบ "${name}" นี้ใช่หรือไม่?`, (result) => {
+                if (result) {
+                    try {
+                        const docRef = doc(db, getCollectionPath(collectionName), id);
+                        deleteDoc(docRef);
+                        console.log("Document successfully deleted:", id);
+                        // If the current trip is deleted, navigate back to list
+                        if (collectionName === 'trips' && id === selectedTripId) {
+                            navigate('list');
+                        }
+                    } catch (error) {
+                        console.error("Error deleting document:", error);
+                    }
+                }
+            });
+        };
+
+        // ------------------- INITIALIZATION -------------------
+        initFirebase();
+        window.navigate('list');
+        // Initial icon rendering for the header/list
+        lucide.createIcons();
+    </script>
+</body>
+</html>
